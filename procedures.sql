@@ -1,0 +1,102 @@
+-- SELECT * FROM "STG".GoalBet
+
+-- SELECT Div, SUM(FTHG) AS home_goals, SUM(FTAG) AS aways_goals 
+-- FROM "STG".GoalBet
+-- GROUP BY Div, Date;
+
+-- CREATE TABLE IF NOT EXISTS "PRD".daily_agg_tripdata(
+-- 		pickup_date date primary key,
+-- 		total_passenger_count int,
+-- 		avg_passenger_count float,
+-- 		tot_distance float,
+-- 		avg_distance float,
+-- 		total_tfare float,
+-- 		avg_tfare float,
+-- 		total_tip float,
+-- 		avg_tip float
+-- );
+-- CREATE TABLE IF NOT EXISTS "EDW".daily_agg_tripdata_channel(
+-- 		pickup_date date not null,
+-- 		payment_type text,
+-- 		total_passenger_count int,
+-- 		avg_passenger_count float,
+-- 		tot_distance float,
+-- 		avg_distance float,
+-- 		total_tfare float,
+-- 		avg_tfare float,
+-- 		total_tip float,
+-- 		avg_tip float,
+-- 		PRIMARY KEY(pickup_date, payment_type)
+-- );
+
+-- SELECT cast(pickup_date as date),
+-- 		sum(passenger_count) tot_passenger_count,
+-- 		avg(passenger_count) avg_passenger_count,
+-- 		sum(trip_distance) tot_distance,
+-- 		avg(trip_distance) avg_distance,
+-- 		sum(fare_amount) tot_tfare,
+-- 		avg(fare_amount) avg_tfare,
+-- 		sum(tip_amount) tot_tip,
+-- 		avg(tip_amount) avg_tip
+-- from "STG.tripdata"
+-- GROUP BY cast(pickup_date as date);
+
+-- CREATE TABLE "STG".procedure_logs(
+-- 		runtime TIMESTAMP NOT NULL,
+-- 		status text,
+-- 		error_msg text
+-- 	);
+	
+-- CREATE OR REPLACE PROCEDURE "STG".agg_tripdata()
+-- LANGUAGE plpgsql
+-- AS $$
+-- DECLARE
+-- 	v_runtime TIMESTAMP;
+-- 	v_status TEXT;
+-- 	v_error_msg TEXT;
+-- BEGIN
+-- 	v_runtime := NOW();
+-- 	v_status := 'SUCCESS'
+-- 	v_error_msg := NULL;
+
+-- 	INSERT INTO "EDW".daily_agg_tripdata
+-- 	SELECT cast(pickup_date as date),
+-- 		sum(passenger_count)
+-- tot_passenger_count,
+-- 		avg(passenger_count) avg_passenger_count,
+-- 		sum(trip_distance) tot_distance,
+-- 		avg(trip_distance) avg_distance,
+-- 		sum(fare_amount) tot_tfare,
+-- 		avg(fare_amount) avg_tfare,
+-- 		sum(tip_amount) tot_tip,
+-- 		avg(tip_amount) avg_tip
+-- 	from "STG".tripdata
+-- 	GROUP BY cast(pickup_date as date);
+	
+-- 	INSERT INTO "EDW".daily_agg_tripdata_channel
+-- 	SELECT cast(pickup_date as date),
+-- 		payment_type,
+-- 		sum(passenger_count) tot_passenger_count,
+-- 		avg(passenger_count) avg_passenger_count,
+-- 		sum(trip_distance) tot_distance,
+-- 		avg(trip_distance) avg_distance,
+-- 		sum(fare_amount) tot_tfare,
+-- 		avg(fare_amount) avg_tfare,
+-- 		sum(tip_amount) tot_tip,
+-- 		avg(tip_amount) avg_tip
+-- 	from "STG".tripdata
+-- 	GROUP BY cast(pickup_date as date), payment_type;
+	
+-- 	--log the outcome
+-- 	INSERT INTO "STG".procedure_logs(runtime, status, error_msg)
+-- 	VALUES (v_runtime, v_status, v_error_msg);
+	
+-- EXCEPTION
+-- 	WHEN OTHERS THEN
+-- 		v_status := 'FAILED'
+-- 		v_error_msg := SQLERRM;
+		
+-- 		INSERT INTO "STG".procedure_logs(runtime, status, error_msg)
+-- 		VALUES (v_runtime, v_status, v_error_msg);
+-- END;
+-- $$;
